@@ -1,0 +1,5 @@
+datetime
+boto3
+opensearch-py
+requests_aws4auth
+inflection
