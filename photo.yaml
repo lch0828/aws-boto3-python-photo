@@ -1,0 +1,127 @@
+Resources:
+    LambdaFunction:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: ""
+            FunctionName: !Sub "index-${OpenSearchServiceDomain}"
+            Handler: !Sub "index-${OpenSearchServiceDomain}.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            Code: 
+                S3Bucket: "cloudformation-lambda-code-zip"
+                S3Key: !Sub "index-lambda-deployment.zip"
+            MemorySize: 128
+            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/index-${OpenSearchServiceDomain}-role-lj9d5mho"
+            Runtime: "python3.9"
+            Timeout: 60
+            TracingConfig: 
+                Mode: "PassThrough"
+            EphemeralStorage: 
+                Size: 512
+
+    LambdaFunction2:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: ""
+            FunctionName: !Sub "search-${OpenSearchServiceDomain}"
+            Handler: !Sub "search-${OpenSearchServiceDomain}.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            Code: 
+                S3Bucket: "cloudformation-lambda-code-zip"
+                S3Key: !Sub "search-lambda-deployment.zip"
+            MemorySize: 128
+            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/search-${OpenSearchServiceDomain}-role-6zj6ylvx"
+            Runtime: "python3.9"
+            Timeout: 60
+            TracingConfig: 
+                Mode: "PassThrough"
+            EphemeralStorage: 
+                Size: 512
+
+    S3Bucket:
+        Type: "AWS::S3::Bucket"
+        Properties:
+            BucketName: "cf-spring-2023-cloud-photo-search-frontend"
+            BucketEncryption: 
+                ServerSideEncryptionConfiguration: 
+                  - 
+                    ServerSideEncryptionByDefault: 
+                        SSEAlgorithm: "AES256"
+                    BucketKeyEnabled: true
+            WebsiteConfiguration: 
+                IndexDocument: "chat.html"
+
+    S3Bucket2:
+        Type: "AWS::S3::Bucket"
+        Properties:
+            BucketName: "cf-spring-2023-cloud-hw2"
+            BucketEncryption: 
+                ServerSideEncryptionConfiguration: 
+                  - 
+                    ServerSideEncryptionByDefault: 
+                        SSEAlgorithm: "AES256"
+                    BucketKeyEnabled: true
+            NotificationConfiguration: 
+                LambdaConfigurations: 
+                  - 
+                    Event: "s3:ObjectCreated:*"
+                    Function: !GetAtt LambdaFunction.Arn
+
+    ApiGatewayRestApi:
+        Type: "AWS::ApiGateway::RestApi"
+        Properties:
+            Name: "cf-AI Photo Search"
+            Description: "AI Photo Search application, built during the Cloud and Big Data course at Columbia University."
+            ApiKeySourceType: "HEADER"
+            BinaryMediaTypes: 
+              - "image/*"
+            EndpointConfiguration: 
+                Types: 
+                  - "REGIONAL"
+
+    OpenSearchServiceDomain:
+        Type: "AWS::OpenSearchService::Domain"
+        Properties:
+            DomainName: "cf-photos"
+            EngineVersion: "OpenSearch_2.5"
+            ClusterConfig: 
+                DedicatedMasterEnabled: false
+                InstanceCount: 1
+                InstanceType: "t3.small.search"
+                ZoneAwarenessEnabled: false
+                WarmEnabled: false
+            AccessPolicies: 
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                        "AWS": "arn:aws:iam::509456314600:role/service-role/index-photos-role-lj9d5mho",
+                        "AWS": "arn:aws:iam::509456314600:role/service-role/search-photos-role-6zj6ylvx"
+                      },
+                      "Action": "es:*",
+                      "Resource": "arn:aws:es:us-east-1:509456314600:domain/photos/*"
+                    }
+                  ]
+                }
+
+            EncryptionAtRestOptions: 
+                Enabled: true
+                KmsKeyId: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/9c47a7b8-608b-4635-a44a-08810edea772"
+            NodeToNodeEncryptionOptions: 
+                Enabled: true
+            AdvancedOptions: 
+                "indices.fielddata.cache.size": "20"
+                "indices.query.bool.max_clause_count": "1024"
+                override_main_response_version: "false"
+                "rest.action.multi.allow_explicit_index": "true"
+            EBSOptions: 
+                EBSEnabled: true
+                VolumeType: "gp3"
+                VolumeSize: 10
+                Iops: 3000
+                Throughput: 125
+            CognitoOptions: 
+                Enabled: false
