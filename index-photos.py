@@ -21,13 +21,14 @@ def lambda_handler(event, context):
         response = s3.head_object(Bucket=bucket, Key=key)
         print('response: ', response)
         print("CONTENT TYPE: " + response['ContentType'])
-        customLabels = response['ResponseMetadata']['HTTPHeaders']['x-amz-meta-customlabels']
         photo = file_name
         bucket = bucket
         time = event['Records'][0]['eventTime']
         labels = detect_labels(photo, bucket)
-        customLabels = customLabels.split(',')
-        labels.extend(customLabels)
+        if 'x-amz-meta-customlabels' in response['ResponseMetadata']['HTTPHeaders']:
+            customLabels = response['ResponseMetadata']['HTTPHeaders']['x-amz-meta-customlabels']
+            customLabels = customLabels.split(',')
+            labels.extend(customLabels)
         
         print(labels)
         for i in range(len(labels)):
