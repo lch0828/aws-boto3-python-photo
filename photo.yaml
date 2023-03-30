@@ -1,17 +1,22 @@
+Parameters:
+    LexBotId:
+        Type: String
+    LexBotAliasId:
+        Type: String
+
 Resources:
     LambdaFunction:
         Type: "AWS::Lambda::Function"
         Properties:
-            Description: ""
             FunctionName: !Sub "index-${OpenSearchServiceDomain}"
             Handler: !Sub "index-${OpenSearchServiceDomain}.lambda_handler"
             Architectures: 
               - "x86_64"
             Code: 
                 S3Bucket: "cloudformation-lambda-code-zip"
-                S3Key: !Sub "index-lambda-deployment.zip"
+                S3Key: "index-lambda-deployment.zip"
             MemorySize: 128
-            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/index-${OpenSearchServiceDomain}-role-lj9d5mho"
+            Role: !GetAtt IndexLambdaRole.Arn
             Runtime: "python3.9"
             Timeout: 60
             TracingConfig: 
@@ -22,16 +27,15 @@ Resources:
     LambdaFunction2:
         Type: "AWS::Lambda::Function"
         Properties:
-            Description: ""
             FunctionName: !Sub "search-${OpenSearchServiceDomain}"
             Handler: !Sub "search-${OpenSearchServiceDomain}.lambda_handler"
             Architectures: 
               - "x86_64"
             Code: 
                 S3Bucket: "cloudformation-lambda-code-zip"
-                S3Key: !Sub "search-lambda-deployment.zip"
+                S3Key: "search-lambda-deployment.zip"
             MemorySize: 128
-            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/search-${OpenSearchServiceDomain}-role-6zj6ylvx"
+            Role: !GetAtt SearchLambdaRole.Arn
             Runtime: "python3.9"
             Timeout: 60
             TracingConfig: 
@@ -55,6 +59,8 @@ Resources:
     S3Bucket2:
         Type: "AWS::S3::Bucket"
         Properties:
+            VersioningConfiguration:
+                Status: Enabled
             BucketName: "cf-spring-2023-cloud-hw2"
             BucketEncryption: 
                 ServerSideEncryptionConfiguration: 
@@ -98,8 +104,7 @@ Resources:
                     {
                       "Effect": "Allow",
                       "Principal": {
-                        "AWS": "arn:aws:iam::509456314600:role/service-role/index-photos-role-lj9d5mho",
-                        "AWS": "arn:aws:iam::509456314600:role/service-role/search-photos-role-6zj6ylvx"
+                        "AWS": ["arn:aws:iam::509456314600:role/service-role/index-photos-role-lj9d5mho", "arn:aws:iam::509456314600:role/service-role/search-photos-role-6zj6ylvx"]
                       },
                       "Action": "es:*",
                       "Resource": "arn:aws:es:us-east-1:509456314600:domain/photos/*"
@@ -125,3 +130,52 @@ Resources:
                 Throughput: 125
             CognitoOptions: 
                 Enabled: false
+
+    SearchLambdaRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                  - Effect: Allow
+                    Principal:
+                        Service: lambda.amazonaws.com
+                    Action: sts:AssumeRole
+            Policies:
+              - PolicyName: SearchLambdaPermissions
+                PolicyDocument:
+                    Version: "2012-10-17"
+                    Statement:
+                      - Effect: Allow
+                        Action:
+                            - "lex:*"
+                            - "s3:*"
+                            - "s3-object-lambda:*"
+                            - "execute-api:Invoke"
+                            - "es:*"
+                        Resource:
+                            - !Sub "arn:aws:lex:${AWS::Region}:${AWS::AccountId}:bot/${LexBotId}/alias/${LexBotAliasId}"
+            
+    IndexLambdaRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                  - Effect: Allow
+                    Principal:
+                        Service: lambda.amazonaws.com
+                    Action: sts:AssumeRole
+            Policies:
+              - PolicyName: IndexLambdaPermissions
+                PolicyDocument:
+                    Version: "2012-10-17"
+                    Statement:
+                      - Effect: Allow
+                        Action:
+                            - "s3:*"
+                            - "s3-object-lambda:*"
+                            - "execute-api:Invoke"
+                            - "es:*"
+                        Resource:
+                            - "*"
