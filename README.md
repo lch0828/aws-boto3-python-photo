@@ -1,4 +1,4 @@
-# Chatbot Restaurant #
+# Chatbot Photo #
 
 ## Member ##
 cl4335
